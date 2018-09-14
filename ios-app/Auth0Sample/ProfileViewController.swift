@@ -23,22 +23,21 @@
 
 import UIKit
 import Auth0
-import SimpleKeychain
 
 class ProfileViewController: UIViewController {
 
     @IBOutlet weak var avatarImageView: UIImageView!
     @IBOutlet weak var welcomeLabel: UILabel!
 
-    var profile: UserInfo!
+    var profile: UserInfo?
 
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        profile = SessionManager.shared.profile
-        self.welcomeLabel.text = "Welcome, \(self.profile.name ?? "no  name")"
-        guard let pictureURL = self.profile.picture else { return }
+        guard let profile = SessionManager.shared.profile else { return }
+        self.welcomeLabel.text = "Welcome, \(profile.name ?? "no name")"
+        guard let pictureURL = profile.picture else { return }
         let task = URLSession.shared.dataTask(with: pictureURL) { (data, response, error) in
             guard let data = data , error == nil else { return }
             DispatchQueue.main.async {
@@ -61,7 +60,7 @@ class ProfileViewController: UIViewController {
         auth0.clearSession(federated: true) { outcome in
             print("Logout Called: \(outcome))")
             DispatchQueue.main.async {
-                SessionManager.shared.logout()
+                _ = SessionManager.shared.logout()
                 self.presentingViewController?.dismiss(animated: true, completion: nil)
             }
         }
@@ -73,7 +72,7 @@ class ProfileViewController: UIViewController {
         
         // Configure your request here (method, body, etc)
         if shouldAuthenticate {
-            guard let token = A0SimpleKeychain(service: "Auth0").string(forKey: "access_token") else {
+            guard let token = SessionManager.shared.credentials?.accessToken else {
                 return
             }
             request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

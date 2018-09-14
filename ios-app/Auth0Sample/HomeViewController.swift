@@ -48,21 +48,24 @@ class HomeViewController: UIViewController {
         Auth0
             .webAuth()
             .audience(APIIdentifier)
-            .scope("openid profile read:messages")
+            .scope("openid profile read:messages offline_access")
             .start {
                 switch $0 {
                 case .failure(let error):
                     // Handle the error
                     print("Error: \(error)")
                 case .success(let credentials):
-                    guard let accessToken = credentials.accessToken, let idToken = credentials.idToken else { return }
-                    SessionManager.shared.storeTokens(accessToken, idToken: idToken)
-                    SessionManager.shared.retrieveProfile { error in
-                        guard error == nil else {
-                            return self.showLogin()
-                        }
-                        DispatchQueue.main.async {
-                            self.performSegue(withIdentifier: "ShowProfileNonAnimated", sender: nil)
+                    if(!SessionManager.shared.store(credentials: credentials)) {
+                        print("Failed to store credentials")
+                    } else {
+                        SessionManager.shared.retrieveProfile { error in
+                            DispatchQueue.main.async {
+                                guard error == nil else {
+                                    print("Failed to retrieve profile: \(String(describing: error))")
+                                    return self.showLogin()
+                                }
+                                self.performSegue(withIdentifier: "ShowProfileNonAnimated", sender: nil)
+                            }
                         }
                     }
                 }
@@ -72,13 +75,23 @@ class HomeViewController: UIViewController {
     fileprivate func checkAccessToken() {
         let loadingAlert = UIAlertController.loadingAlert()
         loadingAlert.presentInViewController(self)
-        SessionManager.shared.logout()
-        SessionManager.shared.retrieveProfile { error in
-            loadingAlert.dismiss(animated: true) {
-                guard error == nil else {
-                    return self.showLogin()
+        SessionManager.shared.renewAuth { error in
+            DispatchQueue.main.async {
+                loadingAlert.dismiss(animated: true) {
+                    guard error == nil else {
+                        print("Failed to retrieve credentials: \(String(describing: error))")
+                        return self.showLogin()
+                    }
+                    SessionManager.shared.retrieveProfile { error in
+                        DispatchQueue.main.async {
+                            guard error == nil else {
+                                print("Failed to retrieve profile: \(String(describing: error))")
+                                return self.showLogin()
+                            }
+                            self.performSegue(withIdentifier: "ShowProfileNonAnimated", sender: nil)
+                        }
+                    }
                 }
-                self.performSegue(withIdentifier: "ShowProfileNonAnimated", sender: nil)
             }
         }
     }

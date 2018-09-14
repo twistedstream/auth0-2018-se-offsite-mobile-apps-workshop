@@ -22,32 +22,25 @@
 // THE SOFTWARE.
 
 import Foundation
-import SimpleKeychain
 import Auth0
-
-enum SessionManagerError: Error {
-    case noAccessToken
-}
 
 class SessionManager {
     static let shared = SessionManager()
-    let keychain = A0SimpleKeychain(service: "Auth0")
-
+    private let authentication = Auth0.authentication()
+    let credentialsManager: CredentialsManager!
     var profile: UserInfo?
-
-    private init () { }
-
-    func storeTokens(_ accessToken: String, idToken: String) {
-        self.keychain.setString(accessToken, forKey: "access_token")
-        self.keychain.setString(idToken, forKey: "id_token")
+    var credentials: Credentials?
+    
+    private init () {
+        self.credentialsManager = CredentialsManager(authentication: Auth0.authentication())
+        self.credentialsManager.enableTouchAuth(withTitle: "Touch to Authenticate")
+        // _ = self.authentication.logging(enabled: true) // API Logging
     }
-
+    
     func retrieveProfile(_ callback: @escaping (Error?) -> ()) {
-        guard let accessToken = self.keychain.string(forKey: "access_token") else {
-            return callback(SessionManagerError.noAccessToken)
-        }
-        Auth0
-            .authentication()
+        guard let accessToken = self.credentials?.accessToken
+            else { return callback(CredentialsManagerError.noCredentials) }
+        self.authentication
             .userInfo(withAccessToken: accessToken)
             .start { result in
                 switch(result) {
@@ -59,9 +52,31 @@ class SessionManager {
                 }
         }
     }
-
-    func logout() {
-        self.keychain.clearAll()
+    
+    func renewAuth(_ callback: @escaping (Error?) -> ()) {
+        // Check it is possible to return credentials before asking for Touch
+        guard self.credentialsManager.hasValid() else {
+            return callback(CredentialsManagerError.noCredentials)
+        }
+        self.credentialsManager.credentials { error, credentials in
+            guard error == nil, let credentials = credentials else {
+                return callback(error)
+            }
+            self.credentials = credentials
+            callback(nil)
+        }
+    }
+    
+    func logout() -> Bool {
+        // Remove credentials from KeyChain
+        self.credentials = nil
+        return self.credentialsManager.clear()
+    }
+    
+    func store(credentials: Credentials) -> Bool {
+        self.credentials = credentials
+        // Store credentials in KeyChain
+        return self.credentialsManager.store(credentials: credentials)
     }
     
 }
@@ -74,7 +89,7 @@ func plistValues(bundle: Bundle) -> (clientId: String, domain: String)? {
             print("Missing Auth0.plist file with 'ClientId' and 'Domain' entries in main bundle!")
             return nil
     }
-
+    
     guard
         let clientId = values["ClientId"] as? String,
         let domain = values["Domain"] as? String
