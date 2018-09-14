@@ -44,11 +44,11 @@ class HomeViewController: UIViewController {
     fileprivate func showLogin() {
         guard let clientInfo = plistValues(bundle: Bundle.main) else { return }
         
-        let APIIdentifier = "https://" + clientInfo.domain + "/userinfo" // Replace with the API Identifier value you created
+        let APIIdentifier = "https://example.com/api"
         Auth0
             .webAuth()
             .audience(APIIdentifier)
-            .scope("openid profile")
+            .scope("openid profile read:messages")
             .start {
                 switch $0 {
                 case .failure(let error):

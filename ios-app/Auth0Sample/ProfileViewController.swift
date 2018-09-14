@@ -68,7 +68,7 @@ class ProfileViewController: UIViewController {
     }
 
     private func callAPI(authenticated shouldAuthenticate: Bool) {
-        let url = URL(string: "https://localhost/your_api")! // Set to your Protected API URL
+        let url = URL(string: "http://localhost:3010/api/private-scoped")!
         var request = URLRequest(url: url)
         
         // Configure your request here (method, body, etc)
