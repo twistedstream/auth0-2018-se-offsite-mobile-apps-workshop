@@ -4,6 +4,7 @@ const jwt = require('express-jwt');
 const jwtAuthz = require('express-jwt-authz');
 const jwksRsa = require('jwks-rsa');
 const cors = require('cors');
+const morgan = require('morgan');
 require('dotenv').config();
 
 if (!process.env.AUTH0_DOMAIN || !process.env.AUTH0_AUDIENCE) {
@@ -15,6 +16,7 @@ const corsOptions =  {
 };
 
 app.use(cors(corsOptions));
+app.use(morgan('dev'));
 
 const checkJwt = jwt({
   // Dynamically provide a signing key based on the kid in the header and the singing keys provided by the JWKS endpoint.
